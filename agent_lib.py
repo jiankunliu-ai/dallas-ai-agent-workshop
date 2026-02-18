@@ -82,10 +82,16 @@ Plan:
         if not code and len(parts) >= 3:
             code = parts[1]
 
+    code = (code or "").strip()
+    # If we extracted from ```python fences via naive splitting, the first line may be "python".
+    lines = [ln.rstrip() for ln in code.splitlines()]
+    if lines and lines[0].strip().lower() in ("python", "py"):
+        code = "\n".join(lines[1:]).lstrip()
+
     return {
         **state,
         "plan": text,
-        "code": (code or "").strip(),
+        "code": code,
         "attempts": state["attempts"] + 1,
     }
 
@@ -147,7 +153,11 @@ Fix the code. Return ONLY a Python code block in triple backticks.
     new_code = ""
     if "```" in text:
         parts = text.split("```")
-        new_code = (parts[1] if len(parts) >= 2 else "").replace("python", "").strip()
+        new_code = (parts[1] if len(parts) >= 2 else "").strip()
+
+    new_lines = [ln.rstrip() for ln in new_code.splitlines()]
+    if new_lines and new_lines[0].strip().lower() in ("python", "py"):
+        new_code = "\n".join(new_lines[1:]).lstrip()
 
     return {**state, "code": new_code, "attempts": state["attempts"] + 1}
 
@@ -184,4 +194,3 @@ def run_task(task: str) -> Dict[str, Any]:
     }
     out = graph.invoke(state)
     return out
-

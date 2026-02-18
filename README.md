@@ -63,6 +63,7 @@ A multi-step agent that:
 ## Troubleshooting:
 - Regenerate your OpenRouter key if you see a 401 error.
 - Restart your notebook kernel after updating `.env`.
+- If `python test_model.py` works but the notebook still gets 401, you likely have a stale shell env var. Before starting Jupyter, run: `unset OPENROUTER_API_KEY OPENROUTER_MODEL`.
 
 ## Notes
 - Agent runs locally on your laptop.
