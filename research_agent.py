@@ -1,10 +1,12 @@
 """Research agent using Tavily for web search and LangGraph for orchestration."""
 
-from typing import TypedDict, List
-from langgraph.graph import StateGraph, END
-from tavily import TavilyClient
-from openai import OpenAI
 import os
+from typing import List, TypedDict
+
+from dotenv import load_dotenv
+from langgraph.graph import END, StateGraph
+from openai import OpenAI
+from tavily import TavilyClient
 
 # ==================== STATE ====================
 class ResearchState(TypedDict):
@@ -14,23 +16,40 @@ class ResearchState(TypedDict):
     report: str
 
 # ==================== CLIENTS ====================
-tavily_client = TavilyClient(api_key=os.environ.get("TAVILY_API_KEY", "").strip())
+load_dotenv(dotenv_path=".env", override=False)
 
-llm_client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.environ.get("OPENROUTER_API_KEY", "").strip(),
-    default_headers={
-        "HTTP-Referer": "http://localhost:8888",
-        "X-Title": "Dallas Agent Workshop - Research",
-    },
-)
 
-MODEL = os.getenv("OPENROUTER_MODEL", "arcee-ai/trinity-large-preview:free")
+def make_tavily_client() -> TavilyClient:
+    api_key = os.environ.get("TAVILY_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("Missing TAVILY_API_KEY. Put it in .env or env var.")
+    return TavilyClient(api_key=api_key)
+
+
+def make_llm_client() -> OpenAI:
+    api_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    if not api_key:
+        raise RuntimeError("Missing OPENROUTER_API_KEY. Put it in .env or env var.")
+    return OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=api_key,
+        default_headers={
+            "HTTP-Referer": "http://localhost:8888",
+            "X-Title": "Dallas Agent Workshop",
+        },
+    )
+
+
+def get_model() -> str:
+    return os.getenv("OPENROUTER_MODEL", "arcee-ai/trinity-large-preview:free")
 
 # ==================== NODES ====================
 
 def planner(state: ResearchState) -> ResearchState:
     """Generate 2-4 search queries."""
+    llm_client = make_llm_client()
+    model = get_model()
+
     prompt = f"""You are a research planner. Break this question into 2-4 specific search queries.
 
 Question: {state['question']}
@@ -38,7 +57,7 @@ Question: {state['question']}
 Return ONLY a Python list of strings. Example: ["query 1", "query 2"]"""
     
     resp = llm_client.chat.completions.create(
-        model=MODEL,
+        model=model,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.2,
     )
@@ -62,6 +81,7 @@ Return ONLY a Python list of strings. Example: ["query 1", "query 2"]"""
 
 def searcher(state: ResearchState) -> ResearchState:
     """Execute Tavily searches."""
+    tavily_client = make_tavily_client()
     all_results = []
     
     for query in state["search_queries"]:
@@ -86,6 +106,8 @@ def searcher(state: ResearchState) -> ResearchState:
 
 def synthesizer(state: ResearchState) -> ResearchState:
     """Generate structured report from sources."""
+    llm_client = make_llm_client()
+    model = get_model()
     
     sources_text = "\n\n".join([
         f"SOURCE [{i+1}]:\nTitle: {r['title']}\nURL: {r['url']}\nSnippet: {r['content'][:400]}..."
@@ -109,7 +131,7 @@ Keep under 400 words. Cite every claim. If sources don't fully answer the questi
 REPORT:"""
     
     resp = llm_client.chat.completions.create(
-        model=MODEL,
+        model=model,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.3,
     )
@@ -152,4 +174,3 @@ def run_research(question: str) -> dict:
     result = graph.invoke(initial_state)
     
     return result
-```
