@@ -39,6 +39,16 @@ Expected output:
 MODEL WORKING
 ```
 
+## Run On Google Colab
+
+Open this repo in Colab using the quickstart notebook:
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jiankunliu-ai/dallas-ai-agent-workshop/blob/main/colab_quickstart.ipynb)
+
+Notes:
+- In Colab, set `OPENROUTER_API_KEY` (and optionally `TAVILY_API_KEY`) as environment variables inside the notebook. You do not need a local `.env` file.
+- If you see a 401 in Colab, restart the runtime and rerun the cell that sets the environment variables.
+
 ### Research Agent
 
 **Motivation:**
@@ -58,7 +68,6 @@ A multi-step agent that:
 - "What are the latest trends in AI agents?"
 - "Compare the top 3 cloud providers for ML workloads"
 - "What's the competitive landscape for vector databases?"
-```
 
 ## Troubleshooting:
 - Regenerate your OpenRouter key if you see a 401 error.
