@@ -28,6 +28,12 @@ jupyter lab
 
 Open: `workshop.ipynb`
 
+## Code Tour
+
+If you want to understand how the agents work (state, nodes, tools, guardrails), read:
+
+- `ARCHITECTURE.md`
+
 ## Preflight Check
 ```bash
 python test_model.py
