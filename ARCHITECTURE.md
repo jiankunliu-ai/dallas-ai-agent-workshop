@@ -132,6 +132,37 @@ Important: this is "meetup-grade" safety, not a hardened sandbox.
 
 This is a second workflow that demonstrates tool use beyond Python execution.
 
+## Diagram: The Research Graph
+
+```text
+               +-------------------+
+               |      planner      |
+               | (LLM -> queries)  |
+               +---------+---------+
+                         |
+                         v
+               +-------------------+
+               |     searcher      |
+               | (Tavily -> urls)  |
+               +---------+---------+
+                         |
+                         v
+               +-------------------+
+               |    synthesizer    |
+               | (LLM -> report)   |
+               +---------+---------+
+                         |
+                         v
+                        END
+```
+
+How to read this:
+
+- The **state** carries `question`, `search_queries`, `raw_results`, and `report`.
+- `planner` proposes a few targeted queries.
+- `searcher` calls Tavily and collects a small set of sources.
+- `synthesizer` uses only those sources to write a structured report with citations.
+
 ### Dependencies and Keys
 
 Research requires:
