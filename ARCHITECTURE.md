@@ -18,6 +18,42 @@ If you understand the state + nodes + tools, you understand the agent.
 
 ## `agent_lib.py`: Code-Execution Agent (LangGraph)
 
+## Diagram: The Agent Graph
+
+```text
+                 +------------------+
+                 |   planner_node   |
+                 |  (LLM -> code)   |
+                 +---------+--------+
+                           |
+                           v
+                 +------------------+
+                 |    exec_node     |
+                 | (run_python tool)|
+                 +----+--------+----+
+                      |        |
+                 ok=True   ok=False
+                      |        |
+                      v        v
+                 +---------+  +------------------+
+                 | finish  |  |    fixer_node    |
+                 | (END)   |  | (LLM fixes code) |
+                 +---------+  +---------+--------+
+                                        |
+                                        v
+                                   +---------+
+                                   | exec    |
+                                   +---------+
+```
+
+How to read this:
+
+- The **state** flows along the arrows.
+- `planner_node` creates a plan and a runnable Python snippet (must print).
+- `exec_node` executes the code and captures stdout/stderr.
+- If execution succeeds, the workflow finishes.
+- If execution fails, `fixer_node` uses the error output to generate a corrected snippet and retries.
+
 ### State
 
 `AgentState` is the shared state that flows through the graph:
@@ -133,4 +169,3 @@ The final result is a dict containing:
 - Live walkthrough: show the `agent_lib.py` loop and how `AgentState` changes per node.
 - Hands-on: have attendees edit prompts, add a node, or adjust `tools.py` restrictions.
 - Debugging: show how stdout/stderr + generated code logging makes failures tractable.
-
