@@ -200,3 +200,126 @@ The final result is a dict containing:
 - Live walkthrough: show the `agent_lib.py` loop and how `AgentState` changes per node.
 - Hands-on: have attendees edit prompts, add a node, or adjust `tools.py` restrictions.
 - Debugging: show how stdout/stderr + generated code logging makes failures tractable.
+
+## Multi-Agent + Handoffs (Conceptual Only)
+
+We are not adding new hands-on examples in this repo for multi-agent systems, and we are not changing the workshop notebooks.
+This section is a deeper conceptual guide so attendees can recognize the same architecture patterns in real systems.
+
+In practice, "multi-agent" usually means an **orchestrator** delegates work to **specialists** and then combines results.
+In LangGraph terms, this can be implemented as:
+
+- A single graph with multiple nodes (each node acts like a specialist), and state is the handoff mechanism.
+- Multiple graphs composed together (a higher-level graph calls sub-graphs), again with explicit state handoffs.
+
+### Diagram: Orchestrator + Specialists
+
+```text
+User Request
+    |
+    v
++-------------------+        +-------------------+
+|   Orchestrator    |------->|  Specialist A     |
+| (routing + state  |<-------| (tool / skill 1)  |
+|  + guardrails)    |        +-------------------+
+|                   |------->+-------------------+
+|                   |<-------|  Specialist B     |
+|                   |        | (tool / skill 2)  |
+|                   |------->+-------------------+
+|                   |<-------|  Specialist C     |
++---------+---------+        | (writeup / QA)    |
+          |                  +-------------------+
+          v
+     Final Output
+```
+
+How to read this:
+
+- The orchestrator is responsible for **what happens next** and for maintaining a **single source of truth state**.
+- Each specialist is responsible for **one kind of work** and should return a predictable output format.
+- Handoffs are not "vibes" or chat history; they are **explicit state fields** and **tool outputs**.
+
+### Key Concepts
+
+Key ideas to communicate (and to enforce in code):
+
+- **Handoff contract**: define what data moves between steps (schemas, fields, expected formats).
+- **Role separation**: planner nodes plan; tool nodes use tools; synthesizer nodes write conclusions.
+- **Verification**: each step should produce observable outputs so failures are debuggable.
+- **Tool boundaries**: restrict which step can call which tool to reduce risk and confusion.
+- **Governance**: log tool calls, keep secrets out of prompts, and avoid giving broad permissions by default.
+
+Mapping to this workshop:
+
+- `agent_lib.py` already demonstrates handoffs via `AgentState` across `planner_node -> exec_node -> fixer_node`.
+- `research_agent.py` demonstrates a workflow handoff across `planner -> searcher -> synthesizer`.
+
+So even though we only run "one agent" at a time in the workshop, the architecture is already the same building block used for
+multi-agent systems: **explicit state + specialized steps + controlled tools**.
+
+### Handoff Contracts (What Makes Multi-Agent Stable)
+
+A handoff contract is just a schema. Even if you're not using formal schema validation, you should think in terms of:
+
+- Inputs: what fields a node reads
+- Outputs: what fields it writes
+- Invariants: what must be true after the node runs
+
+Example (conceptual) contract for a research-style multi-agent system:
+
+```text
+state = {
+  question: str,
+  queries: list[str],        # created by planner
+  sources: list[Source],     # created by searcher
+  claims: list[Claim],       # optional: created by extractor/analyst
+  report: str,               # created by synthesizer
+  errors: list[str],         # append-only
+  trace: list[StepLog],      # append-only (for debugging / governance)
+}
+```
+
+If you treat the handoff like a contract, you get:
+
+- faster debugging (you can inspect state at each step)
+- better prompts (you know what to ask for)
+- safer tool use (only certain nodes touch certain tools)
+
+### Context vs. State vs. Memory
+
+These are related but different:
+
+- **State**: structured data passed between steps in a single run (the handoff mechanism).
+- **Context**: what you include in the model prompt *right now* (often derived from state).
+- **Memory**: what persists across runs (optional), e.g. user preferences or past results.
+
+Workshop takeaway:
+
+- Keep **state** explicit and small.
+- Keep **context** minimal and structured (include only what the next node needs).
+- Add **memory** only after you can pass repeatable tests, because memory can amplify mistakes.
+
+### Governance & Safety Checklist
+
+For a meetup-grade multi-agent system that runs reliably:
+
+- Do not leak secrets into prompts or logs.
+- Log tool calls and key intermediate outputs (small, redacted).
+- Add timeouts and retry limits to every external call.
+- Prefer allowlists over blocklists for dangerous tools.
+- Always force observable outputs (stdout, structured tables/JSON, citations).
+- Add a "stop" mechanism: max steps, max tokens, and user cancel.
+
+### When To Use Multi-Agent (And When Not To)
+
+Use multi-agent patterns when:
+
+- The task naturally decomposes into steps with different tools/skills
+- You need traceability (what sources led to what claims)
+- You want clearer failure modes (each step can be validated)
+
+Avoid multi-agent complexity when:
+
+- A single prompt is enough
+- Tool calls are minimal
+- You cannot validate intermediate results
